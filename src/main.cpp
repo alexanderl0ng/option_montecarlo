@@ -14,6 +14,32 @@ struct Option
 	int num_steps;
 };
 
+std::vector<double> simulate_asset_path(const Option &opt);
+double calculate_payoff (const Option &opt, const std::vector<double> &path);
+double monte_carlo_pricing (const Option &opt);
+double norm_cdf(double x);
+double black_scholes_pricing (const Option &opt);
+
+int main() {
+
+	Option opt;
+    opt.S0 = 100.0;
+    opt.K = 100.0;
+    opt.T = 1.0;
+    opt.r = 0.05;
+    opt.sigma = 0.2;
+    opt.num_simulations = 80000;
+    opt.num_steps = 252;
+
+    double mc_option_price = monte_carlo_pricing(opt);
+    std::cout << "Option price (Monte Carlo): " << mc_option_price << '\n';
+
+    double bs_option_price = black_scholes_pricing(opt);
+    std::cout << "Option price (Black Scholes): " << bs_option_price << '\n';
+
+	return 0;
+}
+
 std::vector<double> simulate_asset_path(const Option &opt)
 {
 	std::vector<double> path(opt.num_steps);
@@ -56,19 +82,16 @@ double monte_carlo_pricing (const Option &opt)
 	return discount_factor * (payoff_sum / opt.num_simulations);
 }
 
-int main() {
+double norm_cdf(double x)
+{
+	return 0.5 * std::erfc(-x * M_SQRT1_2);
+}
 
-	Option opt;
-    opt.S0 = 100.0;
-    opt.K = 100.0;
-    opt.T = 1.0;
-    opt.r = 0.05;
-    opt.sigma = 0.2;
-    opt.num_simulations = 1000000;
-    opt.num_steps = 252;
+double black_scholes_pricing (const Option &opt)
+{
+	double D1 = (log(opt.S0 / opt.K) + (opt.r + ((opt.sigma * opt.sigma) / 2) * opt.T)) / (opt.sigma * sqrt(opt.T));
+	double D2 = D1 - opt.sigma * sqrt(opt.T);
 
-    double option_price = monte_carlo_pricing(opt);
-    std::cout << "Option price: " << option_price << '\n';
-
-	return 0;
+	double price = (opt.S0 * norm_cdf(D1)) - (opt.K * exp(-opt.r * opt.T) * norm_cdf(D2));
+	return std::max(price, 0.0);
 }
