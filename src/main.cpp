@@ -97,13 +97,7 @@ double black_scholes_pricing (const Option &opt)
 	double D1 = (log(opt.S0 / opt.K) + (opt.r + ((opt.sigma * opt.sigma) / 2) * opt.T)) / (opt.sigma * sqrt(opt.T));
 	double D2 = D1 - opt.sigma * sqrt(opt.T);
 
-	double price {};
-	if (opt.call_option)
-	{
-		price = (opt.S0 * norm_cdf(D1)) - (opt.K * exp(-opt.r * opt.T) * norm_cdf(D2));
-	} else
-	{
-		price = (opt.K * exp(-opt.r * opt.T) * norm_cdf(-D2)) - (opt.S0 * norm_cdf(-D1));
-	}
-	return price;
+	if (opt.call_option) return std::max((opt.S0 * norm_cdf(D1)) - (opt.K * exp(-opt.r * opt.T) * norm_cdf(D2)), 0.0);
+
+	return std::max((opt.K * exp(-opt.r * opt.T) * norm_cdf(-D2)) - (opt.S0 * norm_cdf(-D1)), 0.0);
 }
