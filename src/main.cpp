@@ -1,7 +1,10 @@
+#define _USE_MATH_DEFINES
+
 #include <iostream>
 #include <cmath>
 #include <vector>
 #include <random>
+#include <stdint.h>
 
 struct Option
 {
@@ -10,13 +13,16 @@ struct Option
 	double T;
 	double r;
 	double sigma;
-	int num_simulations;
-	int num_steps;
+	double num_simulations;
+	uint32_t num_steps;
 	bool call_option;
+	double confidence;
+	float error_margin;
 };
 
 std::vector<double> simulate_asset_path(const Option &opt);
 double calculate_payoff (const Option &opt, const std::vector<double> &path);
+double pilot_simulation(const Option &opt);
 double monte_carlo_pricing (const Option &opt);
 double norm_cdf(double x);
 double black_scholes_pricing (const Option &opt);
@@ -29,12 +35,16 @@ int main() {
     opt.T = 1.0;
     opt.r = 0.05;
     opt.sigma = 0.2;
-    opt.num_simulations = 80000;
+    opt.num_simulations = 500;
     opt.num_steps = 252;
     opt.call_option = false;
+    opt.confidence = 1.96;
+    opt.error_margin = 5;
+
+    opt.num_simulations = std::ceil(pilot_simulation(opt));
 
     double mc_option_price = monte_carlo_pricing(opt);
-    std::cout << "Option price (Monte Carlo): " << mc_option_price << '\n';
+    std::cout << "Option price (Monte Carlo): " << mc_option_price << " with " << opt.num_simulations << " runs\n";
 
     double bs_option_price = black_scholes_pricing(opt);
     std::cout << "Option price (Black Scholes): " << bs_option_price << '\n';
@@ -54,7 +64,7 @@ std::vector<double> simulate_asset_path(const Option &opt)
 	std::normal_distribution<> distribution(0.0, 1.0);
 
 	path[0] = opt.S0;
-	for (int i = 1; i < opt.num_steps; ++i)
+	for (uint32_t i = 1; i < opt.num_steps; ++i)
 	{
 		double z = distribution(generator);
 		path[i] = path[i - 1] * exp(drift + diffusion * z);
@@ -72,13 +82,30 @@ double calculate_payoff (const Option &opt, const std::vector<double> &path)
 	return std::max(opt.K - S_T, 0.0);
 }
 
+double pilot_simulation(const Option &opt)
+{
+	double sum {};
+
+	for (int i = 0; i < opt.num_simulations; i++)
+	{
+		std::vector<double> path = simulate_asset_path(opt);
+		double value = path.back();
+		sum += value;
+	}
+
+	double mean = sum/opt.num_simulations;
+	double num_sims = ((opt.confidence * mean) / opt.error_margin) * ((opt.confidence * mean) / opt.error_margin);
+
+	return num_sims;
+}
+
 double monte_carlo_pricing (const Option &opt)
 {
 	double payoff_sum = 0.0;
 
 	for (int i = 0; i < opt.num_simulations; i++)
 	{
-		std::vector<double> path = simulate_asset_path(opt);
+		std::vector<double> path = simulate_asset_path(opt); // remove the need to store the entire path when only the last value is needed
 		double payoff = calculate_payoff(opt, path);
 		payoff_sum += payoff;
 	}
